@@ -2,8 +2,7 @@ import sys
 import os
 import ast
 from time import sleep
-from utils import clean_dir
-from constants import DEFAULT_DIR, DEFAULT_MODEL, DEFAULT_MAX_TOKENS
+from constants import DEFAULT_DIR, DEFAULT_MODEL, DEFAULT_MAX_TOKENS, EXTENSION_TO_SKIP
 
 def generate_response(system_prompt, user_prompt, *args):
     import openai
