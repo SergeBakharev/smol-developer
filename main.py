@@ -121,10 +121,18 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
     filepaths_string = generate_response(
         """You are an AI developer who is trying to write a program that will generate code for the user based on their intent.
 
-    When given their intent, create a complete, exhaustive list of filepaths that the user would write to make the program.
+    When given their intent, create a complete, exhaustive list of filepaths that the user would write to make the program. Only list complete filepaths.
 
-    only list the filepaths you would write, and return them as a python list of strings.
-    do not add any other explanation, only return a python list of strings.
+    Only list the filepaths you would write, and return them as a python list of strings separated by commas.
+    Do not add any explanation or markup. Only return a list of filepaths in a python list format.
+
+    good response:
+    ["templates/index.html", "app.py"]
+
+    bad response:
+    templates/
+        index.html
+
     """,
         prompt,
     )
@@ -196,6 +204,9 @@ def write_file(filename, filecode, directory):
     file_path = directory + "/" + filename
     dir = os.path.dirname(file_path)
     os.makedirs(dir, exist_ok=True)
+
+    if filename.endswith("/"):  # sometimes the model provides a folder without a file to create
+        return
 
     # Open the file in write mode
     with open(file_path, "w") as file:
