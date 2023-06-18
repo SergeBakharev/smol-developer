@@ -62,6 +62,11 @@ def generate_response(system_prompt, user_prompt, *args):
     reply = response.choices[0]["message"]["content"]
     return reply
 
+def strip_markdown_code(markdown_code):
+    lines = markdown_code.strip().split("\n")
+    if len(lines) >= 3 and lines[0].strip().startswith("```"):
+        return "\n".join(lines[1:-1])
+    return markdown_code
 
 def generate_file(
     filename, filepaths_string=None, shared_dependencies=None, prompt=None
@@ -89,20 +94,12 @@ def generate_file(
        - do not stray from the names of the files and the shared dependencies we have decided on
        - MOST IMPORTANT OF ALL - the purpose of our app is {prompt} - every line of code you generate must be valid code. Do not include code fences in your response, for example
 
-    Bad response:
-    ```javascript
-    console.log("hello world")
-    ```
-
-    Good response:
-    console.log("hello world")
-
     Begin generating the code now.
 
     """,
     )
 
-    return filename, filecode
+    return filename, strip_markdown_code(filecode)
 
 
 def main(prompt, directory=DEFAULT_DIR, file=None):
@@ -141,7 +138,7 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
     else:
         with open(filelist_path, "r") as file:
             filepaths_string = file.read()
-    is_good_list = input(f"The AI wants to make these files:\n{filepaths_string}\nLet it start?")
+    is_good_list = input(f"The AI wants to make these files:\n{filepaths_string}\nLet it start? ")
     if not is_good_list.lower().startswith("y"):
         print(f"List of files has been saved to: {filelist_path}. Edit this file manually to fine tune the files the AI will create.")
         exit()
@@ -167,7 +164,6 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
             )
             write_file(filename, filecode, directory)
         else:
-            clean_dir(directory)
 
             # understand shared dependencies
             shared_dependencies = generate_response(
