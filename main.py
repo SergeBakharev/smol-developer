@@ -14,30 +14,19 @@ def generate_response(system_prompt, user_prompt, *args):
 
     def reportTokens(prompt):
         encoding = tiktoken.encoding_for_model(DEFAULT_MODEL)
-        # print number of tokens in light gray, with first 10 characters of prompt in green
-        print(
-            "\033[37m"
-            + str(len(encoding.encode(prompt)))
-            + " tokens\033[0m"
-            + " in prompt: "
-            + "\033[92m"
-            + prompt[:50]
-            + "\033[0m"
-        )
+        return len(encoding.encode(prompt))
 
     # Set up your OpenAI API credentials
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
     messages = []
     messages.append({"role": "system", "content": system_prompt})
-    reportTokens(system_prompt)
     messages.append({"role": "user", "content": user_prompt})
-    reportTokens(user_prompt)
+    logging.debug(f"Token used for system_prompt: {reportTokens(system_prompt)} user_prompt {reportTokens(user_prompt)}")
     # loop thru each arg and add it to messages alternating role between "assistant" and "user"
     role = "assistant"
     for value in args:
         messages.append({"role": role, "content": value})
-        reportTokens(value)
         role = "user" if role == "assistant" else "assistant"
 
     params = {
@@ -55,9 +44,9 @@ def generate_response(system_prompt, user_prompt, *args):
             keep_trying = False
         except Exception as e:
             # e.g. when the API is too busy, we don't want to fail everything
-            print("Failed to generate response. Error: ", e)
+            logging.warning("Failed to generate response. Error: ", e)
             sleep(30)
-            print("Retrying...")
+            logging.warning("Retrying...")
 
     # Get the reply from the API response
     reply = response.choices[0]["message"]["content"]
@@ -70,8 +59,9 @@ def strip_markdown_code(markdown_code):
     return markdown_code
 
 def generate_file(
-    filename, filepaths_string=None, shared_dependencies=None, prompt=None
+    filename, filepaths_string=None, shared_dependencies=None, prompt=None, coherent=False
 ):
+    logging.info(f"generating file: {filename}")
     # call openai api with this prompt
     filecode = generate_response(
         f"""You are an AI developer who is trying to write a program that will generate code for the user based on their intent.
@@ -87,7 +77,19 @@ def generate_file(
     """,
         f"""
     We have broken up the program into per-file generation.
+
+    {f'These are the contents of files that have been already written for this project. : {concat_filepaths_from_string(filepaths_string)}' if coherent else ''}
+
     Now your job is to generate only the code for the file {filename}.
+
+    Bad response:
+    ```javascript
+    console.log("hello world")
+    ```
+    Good response:
+    console.log("hello world")
+
+
     Make sure to have consistent filenames if you reference other files we are also generating.
 
     Remember that you must obey 3 things:
@@ -103,7 +105,7 @@ def generate_file(
     return filename, strip_markdown_code(filecode)
 
 
-def main(prompt, directory=DEFAULT_DIR, file=None):
+def main(prompt, directory=DEFAULT_DIR, file=None, coherent=False):
     # read file from prompt if it ends in a .md filetype
     if prompt.endswith(".md"):
         with open(prompt, "r") as promptfile:
@@ -112,6 +114,9 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
     print("hi its me, 🐣the smol developer🐣! you said you wanted:")
     # print the prompt in green color
     print("\033[92m" + prompt + "\033[0m")
+
+    if coherent:
+        logging.info("coherent mode is enabled.")
 
     filelist_path = os.path.join(directory, 'filelist.txt')
     if not os.path.exists(filelist_path):
@@ -156,12 +161,12 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
 
         if file is not None:
             # check file
-            print("file", file)
             filename, filecode = generate_file(
                 file,
                 filepaths_string=filepaths_string,
                 shared_dependencies=shared_dependencies,
                 prompt=prompt,
+                coherent=coherent
             )
             write_file(filename, filecode, directory)
         else:
@@ -184,7 +189,6 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
             """,
                 prompt,
             )
-            print(shared_dependencies)
             # write shared dependencies as a md file inside the generated directory
             write_file("shared_dependencies.md", shared_dependencies, directory)
 
@@ -194,12 +198,22 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
                     filepaths_string=filepaths_string,
                     shared_dependencies=shared_dependencies,
                     prompt=prompt,
+                    coherent=coherent
                 )
                 write_file(filename, filecode, directory)
 
     except ValueError as e:
-        print("Failed to parse result: " + e)
+        logging.error("Failed to parse result: " + e)
 
+def concat_filepaths_from_string(filepaths_string):
+    filepaths = ast.literal_eval(filepaths_string)
+    combined_string = ""
+    for filepath in filepaths:
+        if os.path.exists(filepath):
+            with open(filepath, "r") as file:
+                file_content = file.read()
+                combined_string += f"{filepath:}\n{file_content}\n\n"
+    return combined_string
 
 def write_file(filename, filecode, directory):
     # Output the filename in blue color
@@ -249,8 +263,14 @@ if __name__ == "__main__":
         "-f",
         help="Generates only the specified filename. If not provided the files in <directory>/filelist.txt will be generated. If this file doesn't exist it will be generated by the AI.",
     )
+    parser.add_argument(
+        "--coherent",
+        "-c",
+        help="Passes all the previously generated content as context. Uses a ton of tokens!.",
+        action=argparse.BooleanOptionalAction
+    )
 
     args = parser.parse_args()
 
     # Run the main function
-    main(args.prompt, args.directory, args.file)
+    main(args.prompt, args.directory, args.file, args.coherent)
