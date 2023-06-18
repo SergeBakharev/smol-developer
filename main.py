@@ -1,8 +1,11 @@
 import sys
 import os
 import ast
+import logging
 from time import sleep
 from constants import DEFAULT_DIR, DEFAULT_MODEL, DEFAULT_MAX_TOKENS, EXTENSION_TO_SKIP
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def generate_response(system_prompt, user_prompt, *args):
     import openai
@@ -112,30 +115,36 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
     # print the prompt in green color
     print("\033[92m" + prompt + "\033[0m")
 
-    # example prompt:
-    # a Chrome extension that, when clicked, opens a small window with a page where you can enter
-    # a prompt for reading the currently open page and generating some response from openai
+    filelist_path = os.path.join(directory, 'filelist.txt')
+    if not os.path.exists(filelist_path):
 
     # call openai api with this prompt
-    filepaths_string = generate_response(
-        """You are an AI developer who is trying to write a program that will generate code for the user based on their intent.
+        filepaths_string = generate_response(
+            """You are an AI developer who is trying to write a program that will generate code for the user based on their intent.
 
-    When given their intent, create a complete, exhaustive list of filepaths that the user would write to make the program. Only list complete filepaths.
+        When given their intent, create a complete, exhaustive list of filepaths that the user would write to make the program. Only list complete filepaths.
 
-    Only list the filepaths you would write, and return them as a python list of strings separated by commas.
-    Do not add any explanation or markup. Only return a list of filepaths in a python list format.
+        Only list the filepaths you would write, and return them as a python list of strings separated by commas.
+        Do not add any explanation or markup. Only return a list of filepaths in a python list format.
 
-    good response:
-    ["templates/index.html", "app.py"]
+        good response:
+        ["templates/index.html", "app.py"]
 
-    bad response:
-    templates/
-        index.html
+        bad response:
+        templates/
+            index.html
 
-    """,
-        prompt,
-    )
-    print(filepaths_string)
+        """,
+            prompt,
+        )
+        write_file("filelist.txt", filepaths_string, directory)
+    else:
+        with open(filelist_path, "r") as file:
+            filepaths_string = file.read()
+    is_good_list = input(f"The AI wants to make these files:\n{filepaths_string}\nLet it start?")
+    if not is_good_list.lower().startswith("y"):
+        print(f"List of files has been saved to: {filelist_path}. Edit this file manually to fine tune the files the AI will create.")
+        exit()
     # parse the result into a python list
     list_actual = []
     try:
@@ -191,16 +200,16 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
                 )
                 write_file(filename, filecode, directory)
 
-    except ValueError:
-        print("Failed to parse result: " + result)
+    except ValueError as e:
+        print("Failed to parse result: " + e)
 
 
 def write_file(filename, filecode, directory):
     # Output the filename in blue color
-    print("\033[94m" + filename + "\033[0m")
-    print(filecode)
+    logging.debug("\033[94m" + filename + "\033[0m")
+    logging.debug(f"contents: {filecode}")
 
-    file_path = directory + "/" + filename
+    file_path = os.path.join(directory, filename)
     dir = os.path.dirname(file_path)
     os.makedirs(dir, exist_ok=True)
 
