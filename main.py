@@ -139,7 +139,7 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
     else:
         with open(filelist_path, "r") as filelist_file:
             filepaths_string = filelist_file.read()
-    is_good_list = input(f"The AI wants to make these files:\n{filepaths_string}\nLet it start? ")
+    is_good_list = input(f"The AI has this filelist:\n{filepaths_string}\nLet it start? ")
     if not is_good_list.lower().startswith("y"):
         print(f"List of files has been saved to: {filelist_path}. Edit this file manually to fine tune the files the AI will create.")
         exit()
