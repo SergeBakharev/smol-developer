@@ -136,8 +136,8 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
         )
         write_file("filelist.txt", filepaths_string, directory)
     else:
-        with open(filelist_path, "r") as file:
-            filepaths_string = file.read()
+        with open(filelist_path, "r") as filelist_file:
+            filepaths_string = filelist_file.read()
     is_good_list = input(f"The AI wants to make these files:\n{filepaths_string}\nLet it start? ")
     if not is_good_list.lower().startswith("y"):
         print(f"List of files has been saved to: {filelist_path}. Edit this file manually to fine tune the files the AI will create.")
@@ -202,7 +202,7 @@ def main(prompt, directory=DEFAULT_DIR, file=None):
 
 def write_file(filename, filecode, directory):
     # Output the filename in blue color
-    logging.debug("\033[94m" + filename + "\033[0m")
+    logging.debug(f"\033[94m {filename} \033[0m")
     logging.debug(f"contents: {filecode}")
 
     file_path = os.path.join(directory, filename)
